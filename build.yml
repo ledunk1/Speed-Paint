@@ -39,7 +39,7 @@ jobs:
         
     - name: Build executable
       run: |
-        pyinstaller --onefile --windowed --icon=vidgenfx.ico --add-data "modules;modules" --add-data "static/js;static/js" --add-data "templates;templates" run.py
+        pyinstaller --onefile --windowed --icon=paint.ico --add-data "modules;modules" --add-data "static/js;static/js" --add-data "templates;templates" run.py
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
