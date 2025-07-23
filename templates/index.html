@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Drawing & Paint Reveal Generator</title>
+    <script src="{{ url_for('static', filename='js/counter.js') }}"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .step-card {
+            transition: all 0.3s ease;
+        }
+        .step-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .line-art-canvas {
+            border: 2px dashed #e5e7eb;
+            border-radius: 8px;
+            background: #f9fafb;
+        }
+        #toast-container {
+            max-width: 400px;
+            width: 100%;
+        }
+        @media (max-width: 640px) {
+            #toast-container {
+                top: 1rem;
+                right: 1rem;
+                left: 1rem;
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="text-center">
+                <h1 class="text-3xl font-bold text-gray-900">🎨 Speed Drawing & Paint Reveal Generator</h1>
+                <p class="mt-2 text-gray-600">Transform your images into amazing speed drawing animations</p>
+                <a href="/file_manager" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    🗂️ Manage Files
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Step 1: Upload Image -->
+        <div class="step-card bg-white rounded-lg shadow-md p-6 mb-6" id="step1">
+            <div class="flex items-center mb-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">📁</div>
+                <h2 class="ml-3 text-xl font-semibold text-gray-900">Upload Your Image(s)</h2>
+            </div>
+            
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors" id="upload-area">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <div class="mt-4">
+                    <label for="file-upload" class="cursor-pointer" id="upload-label">
+                        <span class="mt-2 block text-sm font-medium text-gray-900">Click to upload or drag and drop</span>
+                        <span class="mt-1 block text-sm text-gray-500">Single or multiple PNG, JPG, JPEG up to 16MB each</span>
+                    </label>
+                    <input id="file-upload" name="file-upload" type="file" class="sr-only" accept="image/*" multiple>
+                </div>
+            </div>
+            
+            <!-- Single File Preview -->
+            <div id="upload-preview" class="mt-4 hidden">
+                <img id="preview-image" class="max-w-xs mx-auto rounded-lg shadow-md" alt="Preview">
+                <p class="text-center mt-2 text-sm text-gray-600" id="file-info"></p>
+            </div>
+            
+            <!-- Multiple Files Preview -->
+            <div id="multi-file-preview" class="mt-4 hidden">
+                <h3 class="text-lg font-medium text-gray-900 mb-3">Selected Images</h3>
+                
+                <!-- Individual Settings Toggle (only for multiple files) -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="text-sm font-semibold text-blue-800">📋 Individual Settings</h4>
+                            <p class="text-xs text-blue-600">Configure duration settings for each image individually</p>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <button id="apply-global-to-all" class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors">
+                                📋 Apply Global to All
+                            </button>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="use-individual-settings" class="mr-2" checked>
+                                <span class="text-xs text-blue-700">Use Individual Settings</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="file-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+            </div>
+        </div>
+
+        <!-- Processing Status -->
+        <div id="processing-status-card" class="step-card bg-white rounded-lg shadow-md p-6 mb-6 hidden">
+            <div class="flex items-center mb-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-yellow-500 text-white rounded-full flex items-center justify-center">
+                    <div class="loading-spinner w-4 h-4"></div>
+                </div>
+                <h2 class="ml-3 text-xl font-semibold text-gray-900">Processing...</h2>
+            </div>
+            
+            <div class="space-y-3">
+                <div class="flex items-center">
+                    <div id="upload-status" class="w-4 h-4 rounded-full bg-gray-300 mr-3"></div>
+                    <span class="text-gray-600">Uploading image...</span>
+                </div>
+                <div class="flex items-center">
+                    <div id="lineArt-status" class="w-4 h-4 rounded-full bg-gray-300 mr-3"></div>
+                    <span class="text-gray-600">Generating line art with AI...</span>
+                </div>
+                <div class="flex items-center">
+                    <div id="animation-status" class="w-4 h-4 rounded-full bg-gray-300 mr-3"></div>
+                    <span class="text-gray-600">Creating animation...</span>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <p class="text-sm text-gray-500" id="current-process-status">Ready to start...</p>
+            </div>
+        </div>
+
+        <!-- Create Animation -->
+        <div class="step-card bg-white rounded-lg shadow-md p-6" id="step3">
+            <div class="flex items-center mb-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-semibold">🎬</div>
+                <h2 class="ml-3 text-xl font-semibold text-gray-900">Animation Settings</h2>
+            </div>
+            
+            <p class="text-gray-600 mb-6">Select your image above, configure settings below, then click to create your animation!</p>
+            
+            <!-- Animation Settings -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6" id="global-animation-settings">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Animation Mode</label>
+                    <select id="animation-mode" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="full">🎨 Speed Drawing + Paint Reveal</option>
+                        <option value="drawing_only">✏️ Speed Drawing Only</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Paint Style</label>
+                    <select id="style-select" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" disabled>
+                        <option value="1">🖌️ Classic Stroke</option>
+                        <option value="2">🎭 Chaotic Scribble</option>
+                        <option value="3">🖍️ Textured Brush</option>
+                        <option value="4">🎲 Random Line Reveal</option>
+                        <option value="5">🎨 Line Art Reveal</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Drawing Duration (s)</label>
+                    <input type="number" id="drawing-duration" value="8" min="1" max="30" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            
+            <!-- Paint Reveal Settings (hidden when drawing only mode) -->
+            <div id="paint-reveal-settings" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Reveal Duration (s)</label>
+                    <input type="number" id="reveal-duration" value="10" min="1" max="30" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" disabled>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Reveal Area Size</label>
+                    <select id="reveal-area-multiplier" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" disabled>
+                        <option value="0.5">📏 Small (0.5x)</option>
+                        <option value="1.0" selected>📏 Normal (1.0x)</option>
+                        <option value="1.5">📏 Large (1.5x)</option>
+                        <option value="2.0">📏 Extra Large (2.0x)</option>
+                        <option value="3.0">📏 Huge (3.0x)</option>
+                        <option value="4.0">📏 Extra Huge (4.0x)</option>
+                        <option value="5.0">📏 Super Huge (5.0x)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">FPS</label>
+                    <select id="fps-select" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="24">24 FPS</option>
+                        <option value="30" selected>30 FPS</option>
+                        <option value="60">60 FPS</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Speed Drawing Color Settings (only visible in drawing only mode) -->
+            <div id="speed-drawing-color-settings" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 hidden">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Line Color</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="color" id="line-color" value="#3c3c3c" class="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer">
+                        <select id="line-color-preset" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="#3c3c3c">🖤 Dark Gray (Default)</option>
+                            <option value="#000000">⚫ Black</option>
+                            <option value="#1f2937">🌑 Charcoal</option>
+                            <option value="#374151">🌫️ Slate Gray</option>
+                            <option value="#4b5563">🌪️ Cool Gray</option>
+                            <option value="#6b7280">☁️ Medium Gray</option>
+                            <option value="#2563eb">🔵 Blue</option>
+                            <option value="#dc2626">🔴 Red</option>
+                            <option value="#16a34a">🟢 Green</option>
+                            <option value="#ca8a04">🟡 Gold</option>
+                            <option value="#9333ea">🟣 Purple</option>
+                            <option value="#c2410c">🟠 Orange</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="color" id="background-color" value="#ffffff" class="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer">
+                        <select id="background-color-preset" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="#ffffff">⚪ White (Default)</option>
+                            <option value="#f9fafb">🤍 Off White</option>
+                            <option value="#f3f4f6">☁️ Light Gray</option>
+                            <option value="#e5e7eb">🌫️ Soft Gray</option>
+                            <option value="#d1d5db">🌪️ Medium Gray</option>
+                            <option value="#000000">⚫ Black</option>
+                            <option value="#1f2937">🌑 Dark Charcoal</option>
+                            <option value="#374151">🌚 Slate</option>
+                            <option value="#fef3c7">🟡 Cream</option>
+                            <option value="#fef2f2">🌸 Light Pink</option>
+                            <option value="#f0f9ff">🌌 Light Blue</option>
+                            <option value="#f0fdf4">🌿 Light Green</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">FPS</label>
+                    <select id="fps-select-drawing" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="24">24 FPS</option>
+                        <option value="30" selected>30 FPS</option>
+                        <option value="60">60 FPS</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Feature Explanations -->
+            <div id="feature-explanations" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <h4 class="text-sm font-semibold text-blue-800 mb-2">🔧 Advanced Features:</h4>
+                <ul class="text-xs text-blue-700 space-y-1">
+                    <li><strong>✏️ Speed Drawing Only:</strong> Creates animation showing only the drawing process without paint reveal</li>
+                    <li><strong>🎨 Speed Drawing + Paint Reveal:</strong> Full animation with drawing process followed by color reveal</li>
+                    <li><strong>📏 Reveal Area Size:</strong> Controls how large the paint brush/reveal area is</li>
+                    <li><strong>🎲 Random Line Reveal:</strong> Paint reveals randomly around line art paths</li>
+                    <li><strong>🎨 Line Art Reveal:</strong> Paint reveals following exact same path as speed drawing</li>
+                </ul>
+            </div>
+            
+            <button id="create-animation-btn" class="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <span id="animation-btn-text">🚀 Create Animation (Auto-Process All)</span>
+                <div id="animation-spinner" class="loading-spinner mx-auto hidden"></div>
+            </button>
+            
+            <!-- Multiple Images Info -->
+            <div id="multiple-images-info" class="mt-2 text-center hidden">
+                <p class="text-xs text-gray-500">
+                    🎯 <strong>Multiple Images:</strong> Each image will use its individual settings configured above
+                </p>
+            </div>
+            
+            <div class="mt-2 text-center">
+                <p class="text-xs text-gray-500">
+                    🎯 <strong>Single Image:</strong> Upload → Line Art → Animation automatically
+                </p>
+            </div>
+            
+            <!-- Animation Preview -->
+            <div id="animation-result" class="mt-6 hidden">
+                <h4 class="text-lg font-semibold text-gray-900 mb-4">🎉 Animation Ready!</h4>
+                
+                <!-- Video Preview -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                    <h5 class="text-md font-medium text-gray-800 mb-3">📺 Preview Your Animation</h5>
+                    <div class="flex justify-center">
+                        <video id="video-preview" controls class="max-w-full h-auto rounded-lg shadow-md" style="max-height: 400px;">
+                            <source type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                </div>
+                
+                <!-- Download Section -->
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h5 class="text-md font-medium text-gray-800 mb-2">💾 Download Your Animation</h5>
+                    <p class="text-sm text-gray-600 mb-3">Your speed drawing animation has been created successfully and is ready for download.</p>
+                    <a id="download-animation" href="#" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors" download>
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        💾 Download MP4 Video
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Batch Results -->
+        <div id="batch-results" class="step-card bg-white rounded-lg shadow-md p-6 hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-semibold">🎬</div>
+                    <h2 class="ml-3 text-xl font-semibold text-gray-900">Animation Results</h2>
+                </div>
+                <button id="download-all-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    📦 Download All as ZIP
+                </button>
+            </div>
+            
+            <!-- Video Grid with CSS Grid (responsive flexbox-like behavior) -->
+            <div id="video-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+        
+        <!-- Queue Status -->
+        <div id="queue-status" class="step-card bg-white rounded-lg shadow-md p-6 hidden">
+            <div class="flex items-center mb-4">
+                <div class="flex-shrink-0 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center">
+                    <div class="loading-spinner w-4 h-4"></div>
+                </div>
+                <h2 class="ml-3 text-xl font-semibold text-gray-900">Processing Queue</h2>
+            </div>
+            
+            <div class="mb-4">
+                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                    <span>Overall Progress</span>
+                    <span id="queue-progress-text">0 / 0</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="queue-progress-bar" class="bg-orange-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="space-y-2" id="queue-items"></div>
+            
+            <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+                <p class="text-sm text-gray-600" id="current-queue-status">Preparing queue...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- ONNX Runtime Web -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.10.0/dist/ort.js"></script>
+    <!-- Load modular JavaScript files -->
+    <script src="{{ url_for('static', filename='js/ui-utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ui-mode-handler.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/file-handler.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/individual-settings.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/onnx-processor.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/animation-handler.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/queue-system.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core.js') }}"></script>
+</body>
+</html>
